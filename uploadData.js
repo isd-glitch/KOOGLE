@@ -13,6 +13,7 @@ const GOOGLE_CSE_ID = 'b56b6f4c0926441e0';
 async function fetchGoogleResults(query) {
     const response = await fetch(`https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}&cx=${GOOGLE_CSE_ID}`);
     const data = await response.json();
+    console.log('Google API response:', data); // デバッグ用ログ
     return data.items.map(item => ({
         title: item.title,
         url: item.link,
