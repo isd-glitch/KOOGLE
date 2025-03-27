@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Koogle - 検索エンジン</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4285f4;
+            --text-color: #202124;
+            --background-color: #f0f0f0;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+        }
+        /* ホームページスタイル */
+        .home-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: var(--background-color);
+        }
+        .logo {
+            font-size: 4rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+        }
+        .search-wrapper {
+            display: flex;
+            align-items: center;
+            background-color: white;
+            border-radius: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow: hidden;
+            width: 600px;
+            padding: 10px 15px;
+        }
+        #search-input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+            padding: 5px 10px;
+        }
+        .search-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+        }
+
+        /* 検索結果ページスタイル */
+        .results-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .results-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .small-logo {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            margin-right: 20px;
+        }
+        .search-stats {
+            color: #70757a;
+            font-size: 0.9rem;
+        }
+        .search-result {
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+        .result-title {
+            color: var(--primary-color);
+            font-size: 1.2rem;
+            text-decoration: none;
+            margin-bottom: 5px;
+        }
+        .result-url {
+            color: #006621;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+        .result-snippet {
+            color: #545454;
+        }
+        .highlight {
+            background-color: #ffff00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script>
+        // グローバル変数で状態管理
+        let CURRENT_QUERY = '';
+
+        // モックデータベース（実際のウェブクローリングやデータベースを模倣）
+        const mockDatabase = [
+            {
+                title: "Pythonプログラミング入門",
+                url: "https://example.com/python-intro",
+                snippet: "Pythonは初心者にも優しいプログラミング言語で、データサイエンスや機械学習に最適です。",
+                keywords: ["Python", "プログラミング", "データサイエンス"]
+            },
+            {
+                title: "機械学習の基本と応用",
+                url: "https://example.com/machine-learning",
+                snippet: "機械学習は人工知能の中心的な技術で、データから学習し、予測を行います。",
+                keywords: ["機械学習", "AI", "データ分析"]
+            },
+            {
+                title: "JavaScript最新トレンド",
+                url: "https://example.com/javascript-trends",
+                snippet: "モダンなウェブ開発において、JavaScriptは欠かせない言語となっています。",
+                keywords: ["JavaScript", "ウェブ開発", "プログラミング"]
+            },
+            {
+                title: "データサイエンスキャリア",
+                url: "https://example.com/data-science-career",
+                snippet: "データサイエンティストになるためのロードマップと必要なスキルを解説します。",
+                keywords: ["データサイエンス", "キャリア", "プログラミング"]
+            },
+            {
+                title: "人工知能の未来",
+                url: "https://example.com/ai-future",
+                snippet: "人工知能技術は急速に進化し、様々な産業に革命をもたらしつつあります。",
+                keywords: ["AI", "人工知能", "テクノロジー"]
+            }
+        ];
+
+        class KoogleSearchEngine {
+            constructor(database) {
+                this.database = database;
+            }
+
+            // あいまい検索アルゴリズム
+            fuzzySearch(query, results) {
+                const lowercaseQuery = query.toLowerCase();
+                return results.filter(result => 
+                    result.title.toLowerCase().includes(lowercaseQuery) ||
+                    result.snippet.toLowerCase().includes(lowercaseQuery) ||
+                    result.keywords.some(keyword => 
+                        keyword.toLowerCase().includes(lowercaseQuery)
+                    )
+                );
+            }
+
+            // 関連度スコアリング
+            scoreResults(query, results) {
+                return results.map(result => {
+                    let score = 0;
+                    const lowercaseQuery = query.toLowerCase();
+
+                    // タイトルマッチ
+                    if (result.title.toLowerCase().includes(lowercaseQuery)) score += 3;
+                    
+                    // キーワードマッチ
+                    if (result.keywords.some(k => k.toLowerCase().includes(lowercaseQuery))) score += 2;
+                    
+                    // スニペットマッチ
+                    if (result.snippet.toLowerCase().includes(lowercaseQuery)) score += 1;
+
+                    return { ...result, score };
+                }).sort((a, b) => b.score - a.score);
+            }
+
+            // キーワードハイライト
+            highlightKeywords(text, query) {
+                const regex = new RegExp(`(${query})`, 'gi');
+                return text.replace(regex, '<span class="highlight">$1</span>');
+            }
+
+            search(query) {
+                // あいまい検索
+                const fuzzyResults = this.fuzzySearch(query, this.database);
+                
+                // スコアリング
+                const scoredResults = this.scoreResults(query, fuzzyResults);
+
+                return scoredResults.map(result => ({
+                    ...result,
+                    titleHighlighted: this.highlightKeywords(result.title, query),
+                    snippetHighlighted: this.highlightKeywords(result.snippet, query)
+                }));
+            }
+        }
+
+        // ルーティング
+        function renderPage(route) {
+            const app = document.getElementById('app');
+            const koogle = new KoogleSearchEngine(mockDatabase);
+
+            switch(route) {
+                case 'home':
+                    app.innerHTML = `
+                        <div class="home-container">
+                            <div class="logo">KOOGLE</div>
+                            <div class="search-wrapper">
+                                <input type="text" id="search-input" placeholder="検索">
+                                <button class="search-button" id="search-button">
+                                    <i class="ri-search-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    setupHomePageListeners();
+                    break;
+
+                case 'results':
+                    const results = koogle.search(CURRENT_QUERY);
+
+                    app.innerHTML = `
+                        <div class="results-container">
+                            <div class="results-header">
+                                <div class="small-logo">KOOGLE</div>
+                                <div class="search-wrapper">
+                                    <input type="text" id="search-input" value="${CURRENT_QUERY}" placeholder="検索">
+                                    <button class="search-button" id="search-button">
+                                        <i class="ri-search-line"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="search-stats">
+                                約 ${results.length} 件の結果
+                            </div>
+                            <div class="search-results">
+                                ${results.map(result => `
+                                    <div class="search-result">
+                                        <a href="${result.url}" class="result-title" target="_blank">
+                                            ${result.titleHighlighted}
+                                        </a>
+                                        <div class="result-url">${result.url}</div>
+                                        <div class="result-snippet">
+                                            ${result.snippetHighlighted}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    setupResultsPageListeners();
+                    break;
+            }
+        }
+
+        function setupHomePageListeners() {
+            const searchInput = document.getElementById('search-input');
+            const searchButton = document.getElementById('search-button');
+
+            const performSearch = () => {
+                CURRENT_QUERY = searchInput.value.trim();
+                if (CURRENT_QUERY) {
+                    renderPage('results');
+                }
+            };
+
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performSearch();
+            });
+        }
+
+        function setupResultsPageListeners() {
+            const searchInput = document.getElementById('search-input');
+            const searchButton = document.getElementById('search-button');
+
+            const performSearch = () => {
+                CURRENT_QUERY = searchInput.value.trim();
+                if (CURRENT_QUERY) {
+                    renderPage('results');
+                }
+            };
+
+            searchButton.addEventListener('click', performSearch);
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') performSearch();
+            });
+        }
+
+        // 初期ページ読み込み
+        renderPage('home');
+    </script>
+</body>
+</html>
