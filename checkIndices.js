@@ -1,7 +1,7 @@
 const algoliasearch = require('algoliasearch');
 
 // AlgoliaのアプリケーションIDとAdmin APIキー
-const client = algoliasearch('YOUR_ALGOLIA_APP_ID', 'YOUR_ADMIN_API_KEY');
+const client = algoliasearch('6ZZJ34WTSZ', '07e62f840d91213d3d61517577703138');
 
 // インデックス一覧を取得
 client.listIndices()
