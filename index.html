@@ -109,56 +109,77 @@
     <div id="app"></div>
 
     <script>
-        import { algoliasearch } from 'algoliasearch';
+        // グローバル変数で状態管理
+        let CURRENT_QUERY = '';
 
-const client = algoliasearch('6ZZJ34WTSZ', 'dfcc631266200da0b3cb0ff7e932a61f');
-
-// Fetch and index objects in Algolia
-const processRecords = async () => {
-  const datasetRequest = await fetch('https://dashboard.algolia.com/api/1/sample_datasets?type=movie');
-  const movies = await datasetRequest.json();
-  return await client.saveObjects({ indexName: 'movies_index', objects: movies });
-};
-
-processRecords()
-  .then(() => console.log('Successfully indexed objects!'))
-  .catch((err) => console.error(err));
-        // AlgoliaのアプリケーションIDとAPIキー
-        const ALGOLIA_APP_ID = 'YOUR_ALGOLIA_APP_ID';
-        const ALGOLIA_API_KEY = 'YOUR_ALGOLIA_API_KEY';
-        const ALGOLIA_INDEX_NAME = 'YOUR_INDEX_NAME';
-
-        // Algolia APIを使用して検索結果を取得
-        async function fetchAlgoliaResults(query) {
-            const response = await fetch(`https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/${ALGOLIA_INDEX_NAME}/query`, {
-                method: 'POST',
-                headers: {
-                    'X-Algolia-API-Key': ALGOLIA_API_KEY,
-                    'X-Algolia-Application-Id': ALGOLIA_APP_ID,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ query }),
-            });
-            const data = await response.json();
-            return data.hits.map(hit => ({
-                title: hit.title || 'No Title',
-                snippet: hit.snippet || 'No Snippet',
-                url: hit.url || '#',
-                favicon: hit.url ? `https://www.google.com/s2/favicons?domain=${new URL(hit.url).hostname}` : '',
-            }));
-        }
+        // モックデータベース（実際のウェブクローリングやデータベースを模倣）
+        const mockDatabase = [
+            {
+                title: "Pythonプログラミング入門",
+                url: "https://example.com/python-intro",
+                snippet: "Pythonは初心者にも優しいプログラミング言語で、データサイエンスや機械学習に最適です。",
+                keywords: ["Python", "プログラミング", "データサイエンス"]
+            },
+            {
+                title: "機械学習の基本と応用",
+                url: "https://example.com/machine-learning",
+                snippet: "機械学習は人工知能の中心的な技術で、データから学習し、予測を行います。",
+                keywords: ["機械学習", "AI", "データ分析"]
+            },
+            {
+                title: "JavaScript最新トレンド",
+                url: "https://example.com/javascript-trends",
+                snippet: "モダンなウェブ開発において、JavaScriptは欠かせない言語となっています。",
+                keywords: ["JavaScript", "ウェブ開発", "プログラミング"]
+            },
+            {
+                title: "データサイエンスキャリア",
+                url: "https://example.com/data-science-career",
+                snippet: "データサイエンティストになるためのロードマップと必要なスキルを解説します。",
+                keywords: ["データサイエンス", "キャリア", "プログラミング"]
+            },
+            {
+                title: "人工知能の未来",
+                url: "https://example.com/ai-future",
+                snippet: "人工知能技術は急速に進化し、様々な産業に革命をもたらしつつあります。",
+                keywords: ["AI", "人工知能", "テクノロジー"]
+            }
+        ];
 
         class KoogleSearchEngine {
-            async search(query) {
-                // Algolia APIから検索結果を取得
-                const results = await fetchAlgoliaResults(query);
+            constructor(database) {
+                this.database = database;
+            }
 
-                // キーワードハイライトを適用
-                return results.map(result => ({
-                    ...result,
-                    titleHighlighted: this.highlightKeywords(result.title, query),
-                    snippetHighlighted: this.highlightKeywords(result.snippet, query),
-                }));
+            // あいまい検索アルゴリズム
+            fuzzySearch(query, results) {
+                const lowercaseQuery = query.toLowerCase();
+                return results.filter(result => 
+                    result.title.toLowerCase().includes(lowercaseQuery) ||
+                    result.snippet.toLowerCase().includes(lowercaseQuery) ||
+                    result.keywords.some(keyword => 
+                        keyword.toLowerCase().includes(lowercaseQuery)
+                    )
+                );
+            }
+
+            // 関連度スコアリング
+            scoreResults(query, results) {
+                return results.map(result => {
+                    let score = 0;
+                    const lowercaseQuery = query.toLowerCase();
+
+                    // タイトルマッチ
+                    if (result.title.toLowerCase().includes(lowercaseQuery)) score += 3;
+                    
+                    // キーワードマッチ
+                    if (result.keywords.some(k => k.toLowerCase().includes(lowercaseQuery))) score += 2;
+                    
+                    // スニペットマッチ
+                    if (result.snippet.toLowerCase().includes(lowercaseQuery)) score += 1;
+
+                    return { ...result, score };
+                }).sort((a, b) => b.score - a.score);
             }
 
             // キーワードハイライト
@@ -166,12 +187,26 @@ processRecords()
                 const regex = new RegExp(`(${query})`, 'gi');
                 return text.replace(regex, '<span class="highlight">$1</span>');
             }
+
+            search(query) {
+                // あいまい検索
+                const fuzzyResults = this.fuzzySearch(query, this.database);
+                
+                // スコアリング
+                const scoredResults = this.scoreResults(query, fuzzyResults);
+
+                return scoredResults.map(result => ({
+                    ...result,
+                    titleHighlighted: this.highlightKeywords(result.title, query),
+                    snippetHighlighted: this.highlightKeywords(result.snippet, query)
+                }));
+            }
         }
 
         // ルーティング
-        async function renderPage(route) {
+        function renderPage(route) {
             const app = document.getElementById('app');
-            const koogle = new KoogleSearchEngine();
+            const koogle = new KoogleSearchEngine(mockDatabase);
 
             switch(route) {
                 case 'home':
@@ -190,7 +225,7 @@ processRecords()
                     break;
 
                 case 'results':
-                    const results = await koogle.search(CURRENT_QUERY);
+                    const results = koogle.search(CURRENT_QUERY);
 
                     app.innerHTML = `
                         <div class="results-container">
@@ -209,12 +244,9 @@ processRecords()
                             <div class="search-results">
                                 ${results.map(result => `
                                     <div class="search-result">
-                                        <div style="display: flex; align-items: center;">
-                                            <img src="${result.favicon}" alt="favicon" style="width: 16px; height: 16px; margin-right: 10px;">
-                                            <a href="${result.url}" class="result-title" target="_blank">
-                                                ${result.titleHighlighted}
-                                            </a>
-                                        </div>
+                                        <a href="${result.url}" class="result-title" target="_blank">
+                                            ${result.titleHighlighted}
+                                        </a>
                                         <div class="result-url">${result.url}</div>
                                         <div class="result-snippet">
                                             ${result.snippetHighlighted}
