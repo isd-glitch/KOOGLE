@@ -122,8 +122,16 @@
         const GOOGLE_API_KEY = 'AIzaSyBVtoa6hg3M69dRRfNqAvscA4e6vjBsako';
         const GOOGLE_CSE_ID = 'b56b6f4c0926441e0';
 
+        // キャッシュ用オブジェクト
+        const searchCache = {};
+
         // Algolia APIを使用して検索結果を取得
         async function fetchAlgoliaResults(query) {
+            if (searchCache[query]?.algolia) {
+                console.log('Using cached Algolia results for query:', query);
+                return searchCache[query].algolia;
+            }
+
             try {
                 const response = await fetch(`https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/${ALGOLIA_INDEX_NAME}/query`, {
                     method: 'POST',
@@ -140,21 +148,29 @@
                 }
 
                 const data = await response.json();
-                console.log('Algolia API response:', data); // デバッグ用ログ
-
-                return data.hits.map(hit => ({
-                    title: hit.title || hit.name || 'No Title', // データ構造に応じてフィールドを変更
+                const results = data.hits.map(hit => ({
+                    title: hit.title || hit.name || 'No Title',
                     snippet: hit.snippet || hit.description || 'No Snippet',
                     url: hit.url || hit.link || '#',
                     favicon: hit.url ? `https://www.google.com/s2/favicons?domain=${new URL(hit.url).hostname}` : '',
                 }));
+
+                // キャッシュに保存
+                searchCache[query] = { ...searchCache[query], algolia: results };
+                return results;
             } catch (error) {
                 console.error('Error fetching Algolia results:', error);
                 return [];
             }
         }
 
+        // Google Custom Search APIを使用して検索結果を取得
         async function fetchGoogleResults(query) {
+            if (searchCache[query]?.google) {
+                console.log('Using cached Google results for query:', query);
+                return searchCache[query].google;
+            }
+
             try {
                 const response = await fetch(`https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(query)}&key=${GOOGLE_API_KEY}&cx=${GOOGLE_CSE_ID}`);
                 if (!response.ok) {
@@ -162,27 +178,39 @@
                 }
 
                 const data = await response.json();
-                console.log('Google API response:', data); // デバッグ用ログ
-
-                return data.items.map(item => ({
+                const results = data.items.map(item => ({
                     title: item.title,
                     snippet: item.snippet,
                     url: item.link,
                     favicon: `https://www.google.com/s2/favicons?domain=${new URL(item.link).hostname}`,
                 }));
+
+                // キャッシュに保存
+                searchCache[query] = { ...searchCache[query], google: results };
+                return results;
             } catch (error) {
                 console.error('Error fetching Google results:', error);
                 return [];
             }
         }
 
+        // AlgoliaとGoogleの検索結果を統合
         async function fetchCombinedResults(query) {
+            if (searchCache[query]?.combined) {
+                console.log('Using cached combined results for query:', query);
+                return searchCache[query].combined;
+            }
+
             const [algoliaResults, googleResults] = await Promise.all([
                 fetchAlgoliaResults(query),
                 fetchGoogleResults(query),
             ]);
 
-            return [...algoliaResults, ...googleResults];
+            const combinedResults = [...algoliaResults, ...googleResults];
+
+            // キャッシュに保存
+            searchCache[query] = { ...searchCache[query], combined: combinedResults };
+            return combinedResults;
         }
 
         class KoogleSearchEngine {
@@ -205,6 +233,29 @@
                 const regex = new RegExp(`(${query})`, 'gi');
                 return text.replace(regex, '<span class="highlight">$1</span>');
             }
+        }
+
+        // 検索制限の設定
+        const SEARCH_LIMIT = 5; // 最大検索回数
+        const TIME_WINDOW = 3 * 60 * 60 * 1000; // 3時間（ミリ秒）
+
+        function canSearch() {
+            const now = Date.now();
+            const searchHistory = JSON.parse(localStorage.getItem('searchHistory')) || [];
+
+            // 古い履歴を削除
+            const updatedHistory = searchHistory.filter(timestamp => now - timestamp < TIME_WINDOW);
+            localStorage.setItem('searchHistory', JSON.stringify(updatedHistory));
+
+            // 検索可能か確認
+            return updatedHistory.length < SEARCH_LIMIT;
+        }
+
+        function recordSearch() {
+            const now = Date.now();
+            const searchHistory = JSON.parse(localStorage.getItem('searchHistory')) || [];
+            searchHistory.push(now);
+            localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
         }
 
         // ルーティング
@@ -273,8 +324,14 @@
             const searchButton = document.getElementById('search-button');
 
             const performSearch = () => {
+                if (!canSearch()) {
+                    alert('検索回数の上限に達しました。3時間後に再試行してください。');
+                    return;
+                }
+
                 CURRENT_QUERY = searchInput.value.trim();
                 if (CURRENT_QUERY) {
+                    recordSearch();
                     renderPage('results');
                 } else {
                     console.warn('Search query is empty.');
@@ -292,8 +349,14 @@
             const searchButton = document.getElementById('search-button');
 
             const performSearch = () => {
+                if (!canSearch()) {
+                    alert('検索回数の上限に達しました。3時間後に再試行してください。');
+                    return;
+                }
+
                 CURRENT_QUERY = searchInput.value.trim();
                 if (CURRENT_QUERY) {
+                    recordSearch();
                     renderPage('results');
                 } else {
                     console.warn('Search query is empty.');
