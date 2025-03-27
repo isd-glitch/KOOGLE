@@ -118,7 +118,6 @@
             const data = await response.json();
             return data.RelatedTopics.map(topic => ({
                 title: topic.Text || 'No Title',
-                url: topic.FirstURL || '#',
                 snippet: topic.Text || 'No Snippet',
             }));
         }
@@ -184,10 +183,9 @@
                             <div class="search-results">
                                 ${results.map(result => `
                                     <div class="search-result">
-                                        <a href="${result.url}" class="result-title" target="_blank">
+                                        <div class="result-title">
                                             ${result.titleHighlighted}
-                                        </a>
-                                        <div class="result-url">${result.url}</div>
+                                        </div>
                                         <div class="result-snippet">
                                             ${result.snippetHighlighted}
                                         </div>
