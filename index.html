@@ -116,26 +116,36 @@
         // AlgoliaのアプリケーションIDとAPIキー
         const ALGOLIA_APP_ID = '6ZZJ34WTSZ';
         const ALGOLIA_API_KEY = '07e62f840d91213d3d61517577703138';
-        const ALGOLIA_INDEX_NAME = 'YOUR_INDEX_NAMEisd_glitch_github_io_6zzj34wtsz_pages';
+        const ALGOLIA_INDEX_NAME = 'isd_glitch_github_io_6zzj34wtsz_pages';
 
         // Algolia APIを使用して検索結果を取得
         async function fetchAlgoliaResults(query) {
-            const response = await fetch(`https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/${ALGOLIA_INDEX_NAME}/query`, {
-                method: 'POST',
-                headers: {
-                    'X-Algolia-API-Key': '6ZZJ34WTSZY',
-                    'X-Algolia-Application-Id': '07e62f840d91213d3d61517577703138',
-                    'Content-Type': 'isd_glitch_github_io_6zzj34wtsz_pages',
-                },
-                body: JSON.stringify({ query }),
-            });
-            const data = await response.json();
-            return data.hits.map(hit => ({
-                title: hit.title || 'No Title',
-                snippet: hit.snippet || 'No Snippet',
-                url: hit.url || '#',
-                favicon: hit.url ? `https://www.google.com/s2/favicons?domain=${new URL(hit.url).hostname}` : '',
-            }));
+            try {
+                const response = await fetch(`https://${6ZZJ34WTSZ}-dsn.algolia.net/1/indexes/${ALGOLIA_INDEX_NAME}/query`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Algolia-API-Key': 07e62f840d91213d3d61517577703138,
+                        'X-Algolia-Application-Id': 6ZZJ34WTSZ,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.hits.map(hit => ({
+                    title: hit.title || 'No Title',
+                    snippet: hit.snippet || 'No Snippet',
+                    url: hit.url || '#',
+                    favicon: hit.url ? `https://www.google.com/s2/favicons?domain=${new URL(hit.url).hostname}` : '',
+                }));
+            } catch (error) {
+                console.error('Error fetching Algolia results:', error);
+                return [];
+            }
         }
 
         class KoogleSearchEngine {
